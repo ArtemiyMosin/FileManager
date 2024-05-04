@@ -1,5 +1,6 @@
 import os
 import shutil
+import zipfile
 import configparser
 
 class FileManager:
@@ -7,9 +8,31 @@ class FileManager:
         self.config = configparser.ConfigParser()
         self.config.read("config.ini")
         self.work_dir = self.config["DEFAULT"]["work_dir"]
-        os.chdir(self.work_dir)  # Переходим в рабочую директорию
+        os.chdir('/Users/artemijmosin/Downloads/')  # Переходим в рабочую директорию
+    
+    def check_user_directory(self, path):
+        return os.path.commonpath([os.path.realpath(self.work_dir), os.path.realpath(path)]) == os.path.realpath(self.work_dir)
+
+    def create_user_directory(self, username):
+        user_dir = os.path.join(self.work_dir, username)
+        if not os.path.exists(user_dir):
+            os.mkdir(user_dir)
+            print(f"Created directory for user '{username}'")
+        else:
+            print(f"Directory for user '{username}' already exists")
+
+    def register_user(self, username):
+        user_dir = os.path.join(self.work_dir, username)
+        if not os.path.exists(user_dir):
+            os.mkdir(user_dir)
+            print(f"Registered new user '{username}'")
+        else:
+            print(f"User '{username}' already exists")
 
     def create_directory(self, dir_name):
+        if not self.check_user_directory(dir_name):
+            print("Ошибка: Вы пытаетесь создать директорию за пределами своей рабочей директории.")
+            return
         try:
             os.mkdir(dir_name)
             print(f"Директория '{dir_name}' создана.")
@@ -17,6 +40,9 @@ class FileManager:
             print(f"Директория '{dir_name}' уже существует.")
 
     def delete_directory(self, dir_name):
+        if not self.check_user_directory(dir_name):
+            print("Ошибка: Вы пытаетесь удалить директорию за пределами своей рабочей директории.")
+            return
         try:
             os.rmdir(dir_name)
             print(f"Директория '{dir_name}' удалена.")
@@ -88,8 +114,36 @@ class FileManager:
             print(f"Файл '{old_name}' переименован в '{new_name}'.")
         except FileNotFoundError:
             print(f"Файл '{old_name}' не найден.")
+    
+    def create_archive(self, source, destination):
+        try:
+            shutil.make_archive(destination, 'zip', source)
+            print(f"Архив создан: {destination}.zip")
+        except FileNotFoundError:
+            print("Исходный файл/директория не найдены.")
 
-# Пример использования
+    def extract_archive(self, source, destination):
+        if not self.check_user_directory(source) or not self.check_user_directory(destination):
+            print("Ошибка: Вы пытаетесь распаковать архив за пределами своей рабочей директории.")
+            return
+        try:
+            with zipfile.ZipFile(source, 'r') as zip_ref:
+                zip_ref.extractall(destination)
+            print(f"Архив распакован в: {destination}")
+        except FileNotFoundError:
+            print("Архив не найден.")
+        except zipfile.BadZipFile:
+            print("Неверный формат zip-архива.")
+
+    def disk_quota(self, username):
+        user_dir = os.path.join(self.work_dir, username)
+        total, used, free = shutil.disk_usage(user_dir)
+        print(f"Всего дискового пространства: {total} байт")
+        print(f"Использовано дискового пространства: {used} байт")
+        print(f"Свободно дискового пространства: {free} байт")
+        if used > total * 0.9:
+            print("Предупреждение: вы приближаетесь к лимиту дискового пространства.")
+
 if __name__ == "__main__":
     file_manager = FileManager()
     while True:
@@ -105,7 +159,12 @@ if __name__ == "__main__":
         print("9. Скопировать файл")
         print("10. Переместить файл")
         print("11. Переименовать файл")
-        print("12. Выйти")
+        print("12. Зарегистрировать нового пользователя")
+        print("13. Создать директорию для пользователя")
+        print("14. Создать архив")
+        print("15. Распаковать архив")
+        print("16. Проверить квоту дискового пространства")
+        print("17. Выйти")
         choice = input("Выберите действие: ")
         if choice == "1":
             dir_name = input("Введите имя новой директории: ")
@@ -144,6 +203,23 @@ if __name__ == "__main__":
             new_name = input("Введите новое имя файла: ")
             file_manager.rename_file(old_name, new_name)
         elif choice == "12":
+            username = input("Введите имя пользователя: ")
+            file_manager.register_user(username)
+        elif choice == "13":
+            username = input("Введите имя пользователя для создания директории: ")
+            file_manager.create_user_directory(username)
+        elif choice == "14":
+            source = input("Введите путь к файлу или директории: ")
+            destination = input("Введите путь для сохранения архива: ")
+            file_manager.create_archive(source, destination)
+        elif choice == "15":
+            source = input("Введите путь к архиву: ")
+            destination = input("Введите путь для распаковки: ")
+            file_manager.extract_archive(source, destination)
+        elif choice == "16":
+            username = input("Введите имя пользователя: ")
+            file_manager.disk_quota(username)
+        elif choice == "17":
             print("Выход.")
             break
         else:
